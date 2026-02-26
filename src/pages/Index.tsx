@@ -8,6 +8,7 @@ import makhanaImg from "@/assets/Makhana.jpeg";
 import cashewImg from "@/assets/cashewnew.jpeg";
 import elaichiImg from "@/assets/Elaichi.jpeg";
 import { getFeaturedFallbackProducts, type CatalogProduct } from "@/lib/productFallback";
+import { withTimeout } from "@/lib/queryTimeout";
 
 const useReveal = () => {
   const ref = useRef<HTMLDivElement>(null);
@@ -33,28 +34,26 @@ const Section = ({ children, className = "" }: { children: React.ReactNode; clas
 };
 
 const Index = () => {
-  const [featuredProducts, setFeaturedProducts] = useState<CatalogProduct[]>([]);
+  const [featuredProducts, setFeaturedProducts] = useState<CatalogProduct[]>(() => getFeaturedFallbackProducts(4));
 
   useEffect(() => {
     const loadFeaturedProducts = async () => {
       try {
-        const { data, error } = await supabase
-          .from("products")
-          .select("*")
-          .eq("featured", true)
-          .limit(4);
+        const { data, error } = await withTimeout(
+          async () => supabase.from("products").select("*").eq("featured", true).limit(4),
+          7000,
+          "Featured products request timed out"
+        );
 
         if (error) throw error;
 
         if (data && data.length > 0) {
           setFeaturedProducts(data as CatalogProduct[]);
-          return;
         }
       } catch (error) {
         console.warn("Using fallback featured products:", error);
+        setFeaturedProducts(getFeaturedFallbackProducts(4));
       }
-
-      setFeaturedProducts(getFeaturedFallbackProducts(4));
     };
 
     loadFeaturedProducts();
