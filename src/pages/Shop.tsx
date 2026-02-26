@@ -6,6 +6,7 @@ import { Search, SlidersHorizontal, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { filterAndSortFallbackProducts, type CatalogProduct } from "@/lib/productFallback";
+import { withTimeout } from "@/lib/queryTimeout";
 
 const categories = [
   { id: "all", label: "All Products" },
@@ -27,13 +28,21 @@ const Shop = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeCategory = searchParams.get("category") || "all";
   const searchFromUrl = searchParams.get("search") || "";
-  const [products, setProducts] = useState<CatalogProduct[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(searchFromUrl);
   const [sortBy, setSortBy] = useState("newest");
   const [showFilters, setShowFilters] = useState(false);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [products, setProducts] = useState<CatalogProduct[]>(() =>
+    filterAndSortFallbackProducts({
+      category: activeCategory,
+      search: searchFromUrl,
+      minPrice: "",
+      maxPrice: "",
+      sortBy: "newest",
+    })
+  );
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setSearchQuery(searchFromUrl);
@@ -42,6 +51,16 @@ const Shop = () => {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
+
+      const fallbackProducts = filterAndSortFallbackProducts({
+        category: activeCategory,
+        search: searchQuery,
+        minPrice,
+        maxPrice,
+        sortBy,
+      });
+
+      setProducts(fallbackProducts);
 
       try {
         let query = supabase.from("products").select("*");
@@ -70,21 +89,13 @@ const Shop = () => {
             query = query.order("created_at", { ascending: false });
         }
 
-        const { data, error } = await query;
+        const { data, error } = await withTimeout(async () => query, 7000, "Products request timed out");
         if (error) throw error;
 
         setProducts((data as CatalogProduct[]) || []);
       } catch (error) {
         console.warn("Using fallback shop products:", error);
-        setProducts(
-          filterAndSortFallbackProducts({
-            category: activeCategory,
-            search: searchQuery,
-            minPrice,
-            maxPrice,
-            sortBy,
-          })
-        );
+        setProducts(fallbackProducts);
       } finally {
         setLoading(false);
       }
@@ -224,7 +235,7 @@ const Shop = () => {
           </p>
         )}
 
-        {loading ? (
+        {products.length === 0 && loading ? (
           <div className="mt-10 text-center text-muted-foreground">Loading products...</div>
         ) : products.length === 0 ? (
           <div className="mt-10 text-center py-16">
