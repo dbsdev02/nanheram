@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { MessageCircle, Leaf, ShieldCheck, Award, Package } from "lucide-react";
+import { Leaf, ShieldCheck, Award, Package } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import ProductCard from "@/components/ProductCard";
@@ -7,6 +7,7 @@ import heroVideo from "@/assets/hero1.mp4";
 import makhanaImg from "@/assets/Makhana.jpeg";
 import cashewImg from "@/assets/cashewnew.jpeg";
 import elaichiImg from "@/assets/Elaichi.jpeg";
+import { getFeaturedFallbackProducts, type CatalogProduct } from "@/lib/productFallback";
 
 const useReveal = () => {
   const ref = useRef<HTMLDivElement>(null);
@@ -32,12 +33,31 @@ const Section = ({ children, className = "" }: { children: React.ReactNode; clas
 };
 
 const Index = () => {
-  const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
+  const [featuredProducts, setFeaturedProducts] = useState<CatalogProduct[]>([]);
 
   useEffect(() => {
-    supabase.from("products").select("*").eq("featured", true).limit(4).then(({ data }) => {
-      setFeaturedProducts(data || []);
-    });
+    const loadFeaturedProducts = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("products")
+          .select("*")
+          .eq("featured", true)
+          .limit(4);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          setFeaturedProducts(data as CatalogProduct[]);
+          return;
+        }
+      } catch (error) {
+        console.warn("Using fallback featured products:", error);
+      }
+
+      setFeaturedProducts(getFeaturedFallbackProducts(4));
+    };
+
+    loadFeaturedProducts();
   }, []);
 
   return (

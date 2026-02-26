@@ -5,6 +5,7 @@ import ProductCard from "@/components/ProductCard";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { filterAndSortFallbackProducts, type CatalogProduct } from "@/lib/productFallback";
 
 const categories = [
   { id: "all", label: "All Products" },
@@ -26,11 +27,10 @@ const Shop = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeCategory = searchParams.get("category") || "all";
   const searchFromUrl = searchParams.get("search") || "";
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(searchFromUrl);
   const [sortBy, setSortBy] = useState("newest");
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000]);
   const [showFilters, setShowFilters] = useState(false);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
@@ -42,26 +42,54 @@ const Shop = () => {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      let query = supabase.from("products").select("*");
-      if (activeCategory !== "all") query = query.eq("category", activeCategory);
-      if (searchQuery.trim()) query = query.ilike("name", `%${searchQuery.trim()}%`);
-      if (minPrice) query = query.gte("price", Number(minPrice));
-      if (maxPrice) query = query.lte("price", Number(maxPrice));
 
-      // Sort
-      switch (sortBy) {
-        case "oldest": query = query.order("created_at", { ascending: true }); break;
-        case "price-low": query = query.order("price", { ascending: true }); break;
-        case "price-high": query = query.order("price", { ascending: false }); break;
-        case "name-az": query = query.order("name", { ascending: true }); break;
-        case "name-za": query = query.order("name", { ascending: false }); break;
-        default: query = query.order("created_at", { ascending: false });
+      try {
+        let query = supabase.from("products").select("*");
+        if (activeCategory !== "all") query = query.eq("category", activeCategory);
+        if (searchQuery.trim()) query = query.ilike("name", `%${searchQuery.trim()}%`);
+        if (minPrice) query = query.gte("price", Number(minPrice));
+        if (maxPrice) query = query.lte("price", Number(maxPrice));
+
+        switch (sortBy) {
+          case "oldest":
+            query = query.order("created_at", { ascending: true });
+            break;
+          case "price-low":
+            query = query.order("price", { ascending: true });
+            break;
+          case "price-high":
+            query = query.order("price", { ascending: false });
+            break;
+          case "name-az":
+            query = query.order("name", { ascending: true });
+            break;
+          case "name-za":
+            query = query.order("name", { ascending: false });
+            break;
+          default:
+            query = query.order("created_at", { ascending: false });
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        setProducts((data as CatalogProduct[]) || []);
+      } catch (error) {
+        console.warn("Using fallback shop products:", error);
+        setProducts(
+          filterAndSortFallbackProducts({
+            category: activeCategory,
+            search: searchQuery,
+            minPrice,
+            maxPrice,
+            sortBy,
+          })
+        );
+      } finally {
+        setLoading(false);
       }
-
-      const { data } = await query;
-      setProducts(data || []);
-      setLoading(false);
     };
+
     load();
   }, [activeCategory, searchQuery, sortBy, minPrice, maxPrice]);
 
