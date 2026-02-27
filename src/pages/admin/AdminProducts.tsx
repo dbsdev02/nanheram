@@ -129,12 +129,22 @@ const AdminProducts = () => {
 
     if (editing.id) {
       const { error } = await supabase.from("products").update(payload).eq("id", editing.id);
-      if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-      else toast({ title: "Product updated" });
+      if (error) {
+        console.error("Product update error:", error);
+        toast({ title: "Error updating product", description: error.message, variant: "destructive" });
+        setSaving(false);
+        return;
+      }
+      toast({ title: "Product updated" });
     } else {
       const { error } = await supabase.from("products").insert(payload);
-      if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-      else toast({ title: "Product added" });
+      if (error) {
+        console.error("Product insert error:", error);
+        toast({ title: "Error adding product", description: error.message, variant: "destructive" });
+        setSaving(false);
+        return;
+      }
+      toast({ title: "Product added" });
     }
     setSaving(false);
     setOpen(false);
