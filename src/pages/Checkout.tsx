@@ -38,7 +38,6 @@ const Checkout = () => {
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount_type: string; discount_value: number } | null>(null);
 
   useEffect(() => {
-    if (!user) navigate("/auth");
     if (items.length === 0) navigate("/cart");
     if (user) {
       supabase.from("profiles").select("*").eq("user_id", user.id).single().then(({ data }) => {
@@ -300,7 +299,16 @@ const Checkout = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    
+    if (!user) {
+      toast({ 
+        title: "Please sign in", 
+        description: "You need to sign in to complete your order.", 
+        variant: "destructive" 
+      });
+      navigate("/auth");
+      return;
+    }
 
     if (selectedMethod === "razorpay") {
       await handleRazorpaySubmit();
@@ -334,6 +342,26 @@ const Checkout = () => {
         <div className="mt-8 grid gap-8 lg:grid-cols-3">
           {/* Left: Shipping Form */}
           <form onSubmit={handleSubmit} className="space-y-6 lg:col-span-2">
+            {/* Sign In Prompt for Guest Users */}
+            {!user && (
+              <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-6">
+                <div className="flex items-start gap-3">
+                  <ShieldCheck className="h-5 w-5 text-primary mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-foreground">Sign in to complete your order</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      You'll need to sign in before placing your order. Your cart items are saved.
+                    </p>
+                    <Link to="/auth">
+                      <Button type="button" className="mt-3 rounded-full" size="sm">
+                        Sign In / Register
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Contact Information */}
             <div className="rounded-xl border border-border bg-card p-6">
               <h2 className="font-serif text-xl font-semibold text-foreground">Contact Information</h2>

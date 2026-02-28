@@ -36,6 +36,7 @@ type CartContextType = {
 };
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
+const LOCAL_CART_KEY = "guest_cart";
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
@@ -43,8 +44,63 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const loadLocalCart = useCallback(() => {
+    const stored = localStorage.getItem(LOCAL_CART_KEY);
+    return stored ? JSON.parse(stored) : [];
+  }, []);
+
+  const saveLocalCart = useCallback((cart: any[]) => {
+    localStorage.setItem(LOCAL_CART_KEY, JSON.stringify(cart));
+  }, []);
+
+  const syncLocalCartToDb = useCallback(async () => {
+    if (!user) return;
+    const localCart = loadLocalCart();
+    if (localCart.length === 0) return;
+
+    for (const item of localCart) {
+      const insertData: any = { user_id: user.id, product_id: item.product_id, quantity: item.quantity };
+      if (item.variation_id) insertData.variation_id = item.variation_id;
+      await supabase.from("cart_items").insert(insertData).select().single();
+    }
+    localStorage.removeItem(LOCAL_CART_KEY);
+  }, [user, loadLocalCart]);
+
   const fetchCart = useCallback(async () => {
-    if (!user) { setItems([]); return; }
+    if (!user) {
+      const localCart = loadLocalCart();
+      if (localCart.length === 0) { setItems([]); return; }
+      
+      setLoading(true);
+      const productIds = localCart.map((i: any) => i.product_id);
+      const { data: products } = await supabase
+        .from("products")
+        .select("id, name, slug, price, image_url, in_stock")
+        .in("id", productIds);
+      
+      const variationIds = localCart.filter((i: any) => i.variation_id).map((i: any) => i.variation_id);
+      let variationsMap: Record<string, any> = {};
+      if (variationIds.length > 0) {
+        const { data: vars } = await supabase
+          .from("product_variations")
+          .select("id, name, attribute_label, price_adjustment")
+          .in("id", variationIds);
+        if (vars) variationsMap = Object.fromEntries(vars.map(v => [v.id, v]));
+      }
+
+      const productsMap = Object.fromEntries((products || []).map(p => [p.id, p]));
+      setItems(localCart.map((i: any) => ({
+        id: `local-${i.product_id}-${i.variation_id || 'none'}`,
+        product_id: i.product_id,
+        quantity: i.quantity,
+        variation_id: i.variation_id,
+        product: productsMap[i.product_id],
+        variation: i.variation_id ? variationsMap[i.variation_id] || null : null,
+      })));
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     const { data, error } = await supabase
       .from("cart_items")
@@ -52,7 +108,6 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       .eq("user_id", user.id);
     
     if (!error && data) {
-      // Fetch variation details for items that have variations
       const variationIds = data.filter((d: any) => d.variation_id).map((d: any) => d.variation_id);
       let variationsMap: Record<string, any> = {};
       if (variationIds.length > 0) {
@@ -60,9 +115,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
           .from("product_variations")
           .select("id, name, attribute_label, price_adjustment")
           .in("id", variationIds);
-        if (vars) {
-          variationsMap = Object.fromEntries(vars.map(v => [v.id, v]));
-        }
+        if (vars) variationsMap = Object.fromEntries(vars.map(v => [v.id, v]));
       }
 
       setItems(data.map((d: any) => ({
@@ -75,17 +128,17 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       })));
     }
     setLoading(false);
+  }, [user, loadLocalCart]);
+
+  useEffect(() => {
+    if (user) {
+      syncLocalCartToDb().then(() => fetchCart());
+    } else {
+      fetchCart();
+    }
   }, [user]);
 
-  useEffect(() => { fetchCart(); }, [fetchCart]);
-
   const addToCart = async (productId: string, variationId?: string | null) => {
-    if (!user) {
-      toast({ title: "Please sign in", description: "You need to sign in to add items to cart.", variant: "destructive" });
-      return;
-    }
-
-    // Fetch product name for notification
     const { data: productData } = await supabase.from("products").select("name").eq("id", productId).single();
     const productName = productData?.name || "Product";
 
@@ -93,6 +146,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     if (existing) {
       await updateQuantity(productId, existing.quantity + 1, variationId);
       toast({ title: "Cart updated!", description: `${productName} quantity increased.` });
+      return;
+    }
+
+    if (!user) {
+      const localCart = loadLocalCart();
+      localCart.push({ product_id: productId, quantity: 1, variation_id: variationId || null });
+      saveLocalCart(localCart);
+      toast({ title: "Added to cart!", description: `${productName} has been added to your cart.` });
+      await fetchCart();
       return;
     }
 
@@ -109,7 +171,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const removeFromCart = async (productId: string, variationId?: string | null) => {
-    if (!user) return;
+    if (!user) {
+      const localCart = loadLocalCart();
+      const filtered = localCart.filter((i: any) => 
+        !(i.product_id === productId && (i.variation_id || null) === (variationId || null))
+      );
+      saveLocalCart(filtered);
+      await fetchCart();
+      return;
+    }
     let query = supabase.from("cart_items").delete().eq("user_id", user.id).eq("product_id", productId);
     if (variationId) query = query.eq("variation_id", variationId);
     else query = query.is("variation_id", null);
@@ -118,8 +188,19 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateQuantity = async (productId: string, quantity: number, variationId?: string | null) => {
-    if (!user) return;
     if (quantity <= 0) { await removeFromCart(productId, variationId); return; }
+    
+    if (!user) {
+      const localCart = loadLocalCart();
+      const item = localCart.find((i: any) => 
+        i.product_id === productId && (i.variation_id || null) === (variationId || null)
+      );
+      if (item) item.quantity = quantity;
+      saveLocalCart(localCart);
+      await fetchCart();
+      return;
+    }
+
     let query = supabase.from("cart_items").update({ quantity }).eq("user_id", user.id).eq("product_id", productId);
     if (variationId) query = query.eq("variation_id", variationId);
     else query = query.is("variation_id", null);
@@ -128,7 +209,11 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const clearCart = async () => {
-    if (!user) return;
+    if (!user) {
+      localStorage.removeItem(LOCAL_CART_KEY);
+      setItems([]);
+      return;
+    }
     await supabase.from("cart_items").delete().eq("user_id", user.id);
     setItems([]);
   };
