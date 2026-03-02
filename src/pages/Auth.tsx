@@ -7,36 +7,41 @@ import { useToast } from "@/hooks/use-toast";
 
 const Auth = () => {
   const [mode, setMode] = useState<"login" | "signup">("login");
-  const [email, setEmail] = useState("");
+  const [emailOrPhone, setEmailOrPhone] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const isPhoneNumber = (value: string) => /^\d{10}$/.test(value.replace(/\s/g, ""));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
     if (mode === "login") {
-      const { error } = await signIn(email, password);
+      // For login, determine if input is email or phone
+      let loginEmail = emailOrPhone;
+      if (isPhoneNumber(emailOrPhone)) {
+        // Phone login: use phone@nanheram.local convention
+        loginEmail = `${emailOrPhone.replace(/\s/g, "")}@nanheram.local`;
+      }
+      const { error } = await signIn(loginEmail, password);
       if (error) {
         toast({ title: "Login failed", description: error.message, variant: "destructive" });
       } else {
         navigate("/");
       }
     } else {
-      const { data, error } = await signUp(email, password, fullName);
+      const { data, error } = await signUp(emailOrPhone, password, fullName, phone);
       if (error) {
         toast({ title: "Signup failed", description: error.message, variant: "destructive" });
       } else {
-        // Check if user is auto-confirmed
-        if (data?.user && data?.session) {
-          toast({ title: "Account created!", description: "Welcome to NanheRam!" });
-          navigate("/");
-        } else {
-          toast({ title: "Check your email", description: "We've sent you a verification link." });
-        }
+        toast({ title: "Account created!", description: "Welcome to NanheRam!" });
+        navigate("/");
       }
     }
     setLoading(false);
@@ -53,7 +58,7 @@ const Auth = () => {
             {mode === "login" ? "Welcome Back" : "Create Account"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {mode === "login" ? "Sign in to your account" : "Sign up and start shopping"}
+            {mode === "login" ? "Sign in with email or mobile number" : "Sign up and start shopping"}
           </p>
         </div>
 
@@ -65,9 +70,31 @@ const Auth = () => {
             </div>
           )}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">Email</label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" required />
+            <label className="mb-1.5 block text-sm font-medium text-foreground">
+              {mode === "login" ? "Email or Mobile Number" : "Email"}
+            </label>
+            <Input
+              type={mode === "login" ? "text" : "email"}
+              value={emailOrPhone}
+              onChange={(e) => setEmailOrPhone(e.target.value)}
+              placeholder={mode === "login" ? "your@email.com or 9876543210" : "your@email.com"}
+              required
+            />
           </div>
+          {mode === "signup" && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Mobile Number</label>
+              <Input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="9876543210"
+                required
+                pattern="[0-9]{10}"
+                title="Enter 10-digit mobile number"
+              />
+            </div>
+          )}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-foreground">Password</label>
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} />
