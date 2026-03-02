@@ -7,7 +7,7 @@ type AuthContextType = {
   session: Session | null;
   loading: boolean;
   isAdmin: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ data?: any; error: any }>;
+  signUp: (email: string, password: string, fullName: string, phone?: string) => Promise<{ data?: any; error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 };
@@ -56,15 +56,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (email: string, password: string, fullName: string, phone?: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: fullName },
+        data: { full_name: fullName, phone: phone || "" },
         emailRedirectTo: window.location.origin,
       },
     });
+
+    // After signup, update profile with phone number
+    if (!error && data?.user && phone) {
+      await supabase
+        .from("profiles")
+        .update({ phone })
+        .eq("user_id", data.user.id);
+    }
+
     return { data, error };
   };
 
