@@ -3,6 +3,7 @@ import cashewImg from "@/assets/cashewnew.jpeg";
 import almondsImg from "@/assets/Almonds.jpeg";
 import makhanaImg from "@/assets/Makhana.jpeg";
 import elaichiImg from "@/assets/Elaichi.jpeg";
+import abtheaderImg from "@/assets/abtheader.jpeg";
 
 const About = () => {
   return (
@@ -11,7 +12,7 @@ const About = () => {
       <section className="relative h-[360px] md:h-[420px] w-full overflow-hidden">
         <div
           className="absolute inset-0 bg-center bg-cover"
-          style={{ backgroundImage: `url(${almondsImg})` }}
+          style={{ backgroundImage: `url(${abtheaderImg})` }}
         />
         <div className="absolute inset-0 bg-black/45" />
         <div className="relative h-full flex items-center justify-center text-center px-4">

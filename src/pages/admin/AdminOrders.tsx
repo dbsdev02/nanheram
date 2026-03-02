@@ -27,7 +27,12 @@ const AdminOrders = () => {
   };
 
   const updateStatus = async (orderId: string, status: string) => {
-    await supabase.from("orders").update({ status }).eq("id", orderId);
+    const { error } = await supabase.from("orders").update({ status }).eq("id", orderId);
+    if (error) {
+      console.error("Order update error:", error);
+      toast({ title: "Error updating order", description: error.message, variant: "destructive" });
+      return;
+    }
     toast({ title: `Order marked as ${status}` });
     load();
   };

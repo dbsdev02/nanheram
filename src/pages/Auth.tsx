@@ -26,11 +26,17 @@ const Auth = () => {
         navigate("/");
       }
     } else {
-      const { error } = await signUp(email, password, fullName);
+      const { data, error } = await signUp(email, password, fullName);
       if (error) {
         toast({ title: "Signup failed", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Check your email", description: "We've sent you a verification link." });
+        // Check if user is auto-confirmed
+        if (data?.user && data?.session) {
+          toast({ title: "Account created!", description: "Welcome to NanheRam!" });
+          navigate("/");
+        } else {
+          toast({ title: "Check your email", description: "We've sent you a verification link." });
+        }
       }
     }
     setLoading(false);
@@ -47,7 +53,7 @@ const Auth = () => {
             {mode === "login" ? "Welcome Back" : "Create Account"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {mode === "login" ? "Sign in to your account" : "Join us for premium dry fruits & snacks"}
+            {mode === "login" ? "Sign in to your account" : "Sign up and start shopping"}
           </p>
         </div>
 
