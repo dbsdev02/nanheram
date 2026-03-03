@@ -76,28 +76,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (emailOrPhone: string, password: string) => {
-    let email = emailOrPhone;
+    let email = emailOrPhone.trim();
 
-    // If input looks like a phone number, look up the email from profiles
-    const isPhone = /^\d{10}$/.test(emailOrPhone.replace(/\s/g, ""));
-    if (isPhone) {
-      const phone = emailOrPhone.replace(/\s/g, "");
+    // If input is a 10-digit phone number, look up email from profiles
+    if (/^\d{10}$/.test(email)) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("user_id")
-        .eq("phone", phone)
+        .select("email")
+        .eq("phone", email)
         .maybeSingle();
 
-      if (!profile) {
+      if (!profile?.email) {
         return { error: { message: "No account found with this mobile number." } };
       }
-
-      // Get user email via admin - we need to find it from auth
-      // Since we can't query auth.users, we use the phone@nanheram.local fallback
-      // But we need the actual email. Let's try a different approach:
-      // Look up any existing user who signed up, their email is stored in auth
-      // We'll try signing in with phone@local convention first
-      email = `${phone}@nanheram.local`;
+      email = profile.email;
     }
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
