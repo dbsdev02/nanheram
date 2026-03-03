@@ -62,16 +62,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       password,
       options: {
         data: { full_name: fullName, phone: phone || "" },
-        emailRedirectTo: window.location.origin,
       },
     });
 
-    // After signup, update profile with phone number
+    // Update phone in profile in background (trigger creates profile, we just add phone)
     if (!error && data?.user && phone) {
-      await supabase
-        .from("profiles")
-        .update({ phone })
-        .eq("user_id", data.user.id);
+      setTimeout(async () => {
+        await supabase.from("profiles").update({ phone }).eq("user_id", data.user!.id);
+      }, 500);
     }
 
     return { data, error };
