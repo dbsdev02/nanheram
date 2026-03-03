@@ -386,6 +386,7 @@ export type Database = {
           address: string | null
           city: string | null
           created_at: string
+          email: string | null
           full_name: string | null
           id: string
           phone: string | null
@@ -398,6 +399,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id?: string
           phone?: string | null
@@ -410,6 +412,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id?: string
           phone?: string | null
