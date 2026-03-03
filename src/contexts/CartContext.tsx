@@ -139,13 +139,29 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   const addToCart = async (productId: string, variationId?: string | null) => {
-    const { data: productData } = await supabase.from("products").select("name").eq("id", productId).single();
-    const productName = productData?.name || "Product";
+    // Use already-loaded product name from items or skip the extra query
+    const existingProduct = items.find(i => i.product_id === productId);
+    const productName = existingProduct?.product?.name || "Product";
 
     const existing = items.find(i => i.product_id === productId && (i.variation_id || null) === (variationId || null));
     if (existing) {
-      await updateQuantity(productId, existing.quantity + 1, variationId);
+      // Optimistic update
+      setItems(prev => prev.map(i =>
+        i.product_id === productId && (i.variation_id || null) === (variationId || null)
+          ? { ...i, quantity: i.quantity + 1 } : i
+      ));
       toast({ title: "Cart updated!", description: `${productName} quantity increased.` });
+
+      if (!user) {
+        const localCart = loadLocalCart();
+        const item = localCart.find((i: any) => i.product_id === productId && (i.variation_id || null) === (variationId || null));
+        if (item) item.quantity += 1;
+        saveLocalCart(localCart);
+      } else {
+        const q = supabase.from("cart_items").update({ quantity: existing.quantity + 1 }).eq("user_id", user.id).eq("product_id", productId);
+        if (variationId) q.eq("variation_id", variationId); else q.is("variation_id", null);
+        await q;
+      }
       return;
     }
 
@@ -154,20 +170,19 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       localCart.push({ product_id: productId, quantity: 1, variation_id: variationId || null });
       saveLocalCart(localCart);
       toast({ title: "Added to cart!", description: `${productName} has been added to your cart.` });
-      await fetchCart();
+      fetchCart(); // non-blocking
       return;
     }
 
     const insertData: any = { user_id: user.id, product_id: productId, quantity: 1 };
     if (variationId) insertData.variation_id = variationId;
 
+    toast({ title: "Added to cart!", description: `${productName} has been added to your cart.` });
     const { error } = await supabase.from("cart_items").insert(insertData);
     if (error) {
       toast({ title: "Error", description: "Could not add to cart.", variant: "destructive" });
-    } else {
-      toast({ title: "Added to cart!", description: `${productName} has been added to your cart.` });
-      await fetchCart();
     }
+    fetchCart(); // non-blocking refresh
   };
 
   const removeFromCart = async (productId: string, variationId?: string | null) => {
