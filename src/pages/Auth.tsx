@@ -23,13 +23,7 @@ const Auth = () => {
     setLoading(true);
 
     if (mode === "login") {
-      // For login, determine if input is email or phone
-      let loginEmail = emailOrPhone;
-      if (isPhoneNumber(emailOrPhone)) {
-        // Phone login: use phone@nanheram.local convention
-        loginEmail = `${emailOrPhone.replace(/\s/g, "")}@nanheram.local`;
-      }
-      const { error } = await signIn(loginEmail, password);
+      const { error } = await signIn(emailOrPhone, password);
       if (error) {
         toast({ title: "Login failed", description: error.message, variant: "destructive" });
       } else {
