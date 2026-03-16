@@ -4,50 +4,57 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Phone, KeyRound, ArrowLeft } from "lucide-react";
+import { LogIn, UserPlus, ArrowLeft } from "lucide-react";
 
-type Step = "phone" | "otp";
+type Mode = "login" | "signup";
 
 const Auth = () => {
-  const [step, setStep] = useState<Step>("phone");
+  const [mode, setMode] = useState<Mode>("login");
+  const [emailOrPhone, setEmailOrPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signInWithPhone, verifyOtp } = useAuth();
+  const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!/^\d{10}$/.test(phone)) {
-      toast({ title: "Invalid number", description: "Enter a valid 10-digit mobile number.", variant: "destructive" });
+    if (!emailOrPhone || !password) {
+      toast({ title: "Missing fields", description: "Please enter your email/mobile and password.", variant: "destructive" });
       return;
     }
     setLoading(true);
-    const { error } = await signInWithPhone(phone);
+    const { error } = await signIn(emailOrPhone.trim(), password);
     setLoading(false);
     if (error) {
-      toast({ title: "Failed to send OTP", description: error.message, variant: "destructive" });
+      toast({ title: "Login failed", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "OTP Sent!", description: `A 6-digit OTP has been sent to +91 ${phone}` });
-      setStep("otp");
+      toast({ title: "Welcome back!", description: "You are now signed in." });
+      navigate("/");
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otp.length !== 6) {
-      toast({ title: "Invalid OTP", description: "Enter the 6-digit OTP.", variant: "destructive" });
+    if (!emailOrPhone || !password || !fullName) {
+      toast({ title: "Missing fields", description: "Please fill all required fields.", variant: "destructive" });
+      return;
+    }
+    if (password.length < 6) {
+      toast({ title: "Weak password", description: "Password must be at least 6 characters.", variant: "destructive" });
       return;
     }
     setLoading(true);
-    const { error } = await verifyOtp(phone, otp);
+    const { error } = await signUp(emailOrPhone.trim(), password, fullName, phone || undefined);
     setLoading(false);
     if (error) {
-      toast({ title: "Verification failed", description: error.message, variant: "destructive" });
+      toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Welcome to NanheRam!", description: "You are now signed in." });
-      navigate("/");
+      toast({ title: "Account created!", description: "You can now sign in." });
+      setMode("login");
+      setPassword("");
     }
   };
 
@@ -59,64 +66,100 @@ const Auth = () => {
             Nanhe<span className="text-accent">Ram</span>
           </Link>
           <h1 className="mt-4 font-serif text-2xl font-bold text-foreground">
-            {step === "phone" ? "Sign In / Sign Up" : "Verify OTP"}
+            {mode === "login" ? "Sign In" : "Create Account"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {step === "phone"
-              ? "Enter your mobile number to receive an OTP"
-              : `Enter the 6-digit OTP sent to +91 ${phone}`}
+            {mode === "login"
+              ? "Enter your email or 10-digit mobile number"
+              : "Fill in your details to get started"}
           </p>
         </div>
 
-        {step === "phone" ? (
-          <form onSubmit={handleSendOtp} className="mt-6 space-y-4">
+        {mode === "login" ? (
+          <form onSubmit={handleLogin} className="mt-6 space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">Mobile Number</label>
-              <div className="flex items-center gap-2">
-                <span className="flex h-10 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
-                  +91
-                </span>
-                <Input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                  placeholder="9876543210"
-                  required
-                  maxLength={10}
-                />
-              </div>
-            </div>
-            <Button type="submit" className="w-full rounded-full" disabled={loading}>
-              <Phone className="mr-2 h-4 w-4" />
-              {loading ? "Sending OTP..." : "Send OTP"}
-            </Button>
-          </form>
-        ) : (
-          <form onSubmit={handleVerifyOtp} className="mt-6 space-y-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">Enter OTP</label>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Email or Mobile Number</label>
               <Input
                 type="text"
-                inputMode="numeric"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="••••••"
+                value={emailOrPhone}
+                onChange={(e) => setEmailOrPhone(e.target.value)}
+                placeholder="email@example.com or 9876543210"
                 required
-                maxLength={6}
-                className="text-center text-xl tracking-[0.5em]"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Password</label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
               />
             </div>
             <Button type="submit" className="w-full rounded-full" disabled={loading}>
-              <KeyRound className="mr-2 h-4 w-4" />
-              {loading ? "Verifying..." : "Verify OTP"}
+              <LogIn className="mr-2 h-4 w-4" />
+              {loading ? "Signing in..." : "Sign In"}
             </Button>
-            <button
-              type="button"
-              onClick={() => { setStep("phone"); setOtp(""); }}
-              className="flex w-full items-center justify-center gap-1 text-sm text-muted-foreground hover:text-accent"
-            >
-              <ArrowLeft className="h-3 w-3" /> Change number
-            </button>
+            <p className="text-center text-sm text-muted-foreground">
+              Don't have an account?{" "}
+              <button type="button" onClick={() => setMode("signup")} className="font-medium text-accent hover:underline">
+                Sign Up
+              </button>
+            </p>
+          </form>
+        ) : (
+          <form onSubmit={handleSignup} className="mt-6 space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Full Name *</label>
+              <Input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Your full name"
+                required
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Email *</label>
+              <Input
+                type="email"
+                value={emailOrPhone}
+                onChange={(e) => setEmailOrPhone(e.target.value)}
+                placeholder="email@example.com"
+                required
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Mobile Number (optional)</label>
+              <Input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                placeholder="9876543210"
+                maxLength={10}
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Password *</label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Min 6 characters"
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full rounded-full" disabled={loading}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              {loading ? "Creating account..." : "Sign Up"}
+            </Button>
+            <p className="text-center text-sm text-muted-foreground">
+              Already have an account?{" "}
+              <button type="button" onClick={() => setMode("login")} className="font-medium text-accent hover:underline">
+                Sign In
+              </button>
+            </p>
           </form>
         )}
       </div>
