@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { LogIn, UserPlus, ArrowLeft, Phone, Shield } from "lucide-react";
+import { UserPlus, Phone, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 type Mode = "login" | "signup";
@@ -32,7 +32,7 @@ const Auth = () => {
     }
   };
 
-  // --- LOGIN FLOW ---
+  // --- LOGIN FLOW (OTP only) ---
   const handleLoginSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone || !/^\d{10}$/.test(phone)) {
@@ -66,7 +66,6 @@ const Auth = () => {
         throw new Error(data?.error || error?.message || "Verification failed");
       }
 
-      // Use the token_hash to verify OTP and sign in
       if (data.token_hash && data.email) {
         const { error: authError } = await supabase.auth.verifyOtp({
           email: data.email,
@@ -86,7 +85,7 @@ const Auth = () => {
     }
   };
 
-  // --- SIGNUP FLOW ---
+  // --- SIGNUP FLOW (OTP verified, then create account) ---
   const handleSignupSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !email || !phone || !password) {
@@ -128,7 +127,6 @@ const Auth = () => {
         throw new Error(data?.error || error?.message || "Verification failed");
       }
 
-      // OTP verified, now create the account
       const { error: signupErr } = await signUp(email, password, fullName, phone);
       if (signupErr) throw new Error(signupErr.message);
 
@@ -175,7 +173,7 @@ const Auth = () => {
           </p>
         </div>
 
-        {/* OTP VERIFICATION STEP (shared by login & signup) */}
+        {/* OTP VERIFICATION STEP */}
         {step === "otp" ? (
           <form onSubmit={mode === "login" ? handleLoginVerifyOtp : handleSignupVerifyOtp} className="mt-6 space-y-4">
             <div>
@@ -221,7 +219,7 @@ const Auth = () => {
             </div>
           </form>
         ) : mode === "login" ? (
-          /* LOGIN FORM */
+          /* LOGIN FORM - phone only */
           <form onSubmit={handleLoginSendOtp} className="mt-6 space-y-4">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">Mobile Number</label>

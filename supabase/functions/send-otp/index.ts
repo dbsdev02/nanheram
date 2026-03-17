@@ -38,6 +38,12 @@ Deno.serve(async (req) => {
 
     const formattedPhone = `+91${phone}`;
 
+    // Format the From number - ensure E.164 format
+    let fromNumber = TWILIO_PHONE_NUMBER.trim();
+    if (!fromNumber.startsWith("+")) {
+      fromNumber = `+${fromNumber}`;
+    }
+
     // Generate 6-digit OTP
     const code = String(Math.floor(100000 + Math.random() * 900000));
 
@@ -66,7 +72,7 @@ Deno.serve(async (req) => {
       },
       body: new URLSearchParams({
         To: formattedPhone,
-        From: TWILIO_PHONE_NUMBER,
+        From: fromNumber,
         Body: `Your NanheRam verification code is: ${code}. Valid for 5 minutes.`,
       }),
     });

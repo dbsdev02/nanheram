@@ -26,6 +26,7 @@ import AdminReviews from "./pages/admin/AdminReviews";
 import AdminMarketing from "./pages/admin/AdminMarketing";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminCustomers from "./pages/admin/AdminCustomers";
+import AdminLogin from "./pages/admin/AdminLogin";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import NotFound from "./pages/NotFound";
@@ -48,6 +49,9 @@ const App = () => (
         <AuthProvider>
           <CartProvider>
             <Routes>
+              {/* Admin login - separate page, no navbar/footer */}
+              <Route path="/admin/login" element={<AdminLogin />} />
+
               {/* Admin routes - no navbar/footer */}
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<AdminDashboard />} />

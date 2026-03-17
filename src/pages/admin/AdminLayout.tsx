@@ -19,7 +19,7 @@ const AdminLayout = () => {
   const location = useLocation();
 
   useEffect(() => {
-    if (!loading && (!user || !isAdmin)) navigate("/");
+    if (!loading && (!user || !isAdmin)) navigate("/admin/login");
   }, [user, isAdmin, loading, navigate]);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>;
