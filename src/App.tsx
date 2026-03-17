@@ -49,6 +49,9 @@ const App = () => (
         <AuthProvider>
           <CartProvider>
             <Routes>
+              {/* Admin login - separate page, no navbar/footer */}
+              <Route path="/admin/login" element={<AdminLogin />} />
+
               {/* Admin routes - no navbar/footer */}
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<AdminDashboard />} />
