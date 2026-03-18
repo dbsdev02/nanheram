@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.verify-otp]
 verify_jwt = false
+
+[functions.firebase-phone-auth]
+verify_jwt = false
