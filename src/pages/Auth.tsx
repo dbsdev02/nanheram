@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,12 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { UserPlus, Phone, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  firebaseAuth,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+} from "@/lib/firebase";
+import type { ConfirmationResult } from "@/lib/firebase";
 
 type Mode = "login" | "signup";
 type Step = "form" | "otp";
@@ -23,16 +29,52 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const sendOtp = async (phoneNumber: string) => {
-    const { data, error } = await supabase.functions.invoke("send-otp", {
-      body: { phone: phoneNumber },
-    });
-    if (error || !data?.success) {
-      throw new Error(data?.error || error?.message || "Failed to send OTP");
-    }
+  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
+  const confirmationResultRef = useRef<ConfirmationResult | null>(null);
+
+  const setupRecaptcha = useCallback(() => {
+    if (recaptchaVerifierRef.current) return;
+
+    recaptchaVerifierRef.current = new RecaptchaVerifier(
+      firebaseAuth,
+      "recaptcha-container",
+      {
+        size: "invisible",
+        callback: () => {
+          // reCAPTCHA solved
+        },
+        "expired-callback": () => {
+          recaptchaVerifierRef.current = null;
+        },
+      }
+    );
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (recaptchaVerifierRef.current) {
+        try {
+          recaptchaVerifierRef.current.clear();
+        } catch {
+          // ignore
+        }
+        recaptchaVerifierRef.current = null;
+      }
+    };
+  }, []);
+
+  const sendFirebaseOtp = async (phoneNumber: string) => {
+    setupRecaptcha();
+    const formattedPhone = `+91${phoneNumber}`;
+    const confirmationResult = await signInWithPhoneNumber(
+      firebaseAuth,
+      formattedPhone,
+      recaptchaVerifierRef.current!
+    );
+    confirmationResultRef.current = confirmationResult;
   };
 
-  // --- LOGIN FLOW (OTP only) ---
+  // --- LOGIN FLOW ---
   const handleLoginSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone || !/^\d{10}$/.test(phone)) {
@@ -41,11 +83,14 @@ const Auth = () => {
     }
     setLoading(true);
     try {
-      await sendOtp(phone);
+      await sendFirebaseOtp(phone);
       setStep("otp");
       toast({ title: "OTP Sent!", description: `Verification code sent to +91${phone}` });
     } catch (err: any) {
-      toast({ title: "Failed to send OTP", description: err.message, variant: "destructive" });
+      console.error("Firebase OTP error:", err);
+      // Reset recaptcha on error
+      recaptchaVerifierRef.current = null;
+      toast({ title: "Failed to send OTP", description: err.message || "Please try again.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -59,11 +104,16 @@ const Auth = () => {
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("verify-otp", {
-        body: { phone, code: otp, mode: "login" },
+      // Verify OTP with Firebase
+      const result = await confirmationResultRef.current!.confirm(otp);
+      const idToken = await result.user.getIdToken();
+
+      // Use Firebase token to sign into Supabase
+      const { data, error } = await supabase.functions.invoke("firebase-phone-auth", {
+        body: { idToken, phone, mode: "login" },
       });
       if (error || !data?.success) {
-        throw new Error(data?.error || error?.message || "Verification failed");
+        throw new Error(data?.error || error?.message || "Login failed");
       }
 
       if (data.token_hash && data.email) {
@@ -79,13 +129,14 @@ const Auth = () => {
         throw new Error("Login verification failed. Please try again.");
       }
     } catch (err: any) {
+      console.error("Login verify error:", err);
       toast({ title: "Login failed", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  // --- SIGNUP FLOW (OTP verified, then create account) ---
+  // --- SIGNUP FLOW ---
   const handleSignupSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !email || !phone || !password) {
@@ -102,11 +153,13 @@ const Auth = () => {
     }
     setLoading(true);
     try {
-      await sendOtp(phone);
+      await sendFirebaseOtp(phone);
       setStep("otp");
       toast({ title: "OTP Sent!", description: `Verification code sent to +91${phone}` });
     } catch (err: any) {
-      toast({ title: "Failed to send OTP", description: err.message, variant: "destructive" });
+      console.error("Firebase OTP error:", err);
+      recaptchaVerifierRef.current = null;
+      toast({ title: "Failed to send OTP", description: err.message || "Please try again.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -120,19 +173,26 @@ const Auth = () => {
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("verify-otp", {
-        body: { phone, code: otp, mode: "signup" },
+      // Verify OTP with Firebase
+      const result = await confirmationResultRef.current!.confirm(otp);
+      const idToken = await result.user.getIdToken();
+
+      // Verify with backend
+      const { data, error } = await supabase.functions.invoke("firebase-phone-auth", {
+        body: { idToken, phone, mode: "signup" },
       });
       if (error || !data?.success) {
         throw new Error(data?.error || error?.message || "Verification failed");
       }
 
+      // Create Supabase account
       const { error: signupErr } = await signUp(email, password, fullName, phone);
       if (signupErr) throw new Error(signupErr.message);
 
       toast({ title: "Account created!", description: "You are now signed in." });
       navigate("/");
     } catch (err: any) {
+      console.error("Signup verify error:", err);
       toast({ title: "Sign up failed", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
@@ -142,6 +202,8 @@ const Auth = () => {
   const resetFlow = () => {
     setStep("form");
     setOtp("");
+    recaptchaVerifierRef.current = null;
+    confirmationResultRef.current = null;
   };
 
   const switchMode = (newMode: Mode) => {
@@ -152,6 +214,8 @@ const Auth = () => {
     setEmail("");
     setPhone("");
     setFullName("");
+    recaptchaVerifierRef.current = null;
+    confirmationResultRef.current = null;
   };
 
   return (
@@ -172,6 +236,9 @@ const Auth = () => {
               : "Fill in your details to get started"}
           </p>
         </div>
+
+        {/* Invisible reCAPTCHA container */}
+        <div id="recaptcha-container"></div>
 
         {/* OTP VERIFICATION STEP */}
         {step === "otp" ? (
@@ -203,9 +270,10 @@ const Auth = () => {
                 onClick={async () => {
                   setLoading(true);
                   try {
-                    await sendOtp(phone);
+                    await sendFirebaseOtp(phone);
                     toast({ title: "OTP Resent!", description: `New code sent to +91${phone}` });
                   } catch (err: any) {
+                    recaptchaVerifierRef.current = null;
                     toast({ title: "Failed", description: err.message, variant: "destructive" });
                   } finally {
                     setLoading(false);
@@ -219,7 +287,6 @@ const Auth = () => {
             </div>
           </form>
         ) : mode === "login" ? (
-          /* LOGIN FORM - phone only */
           <form onSubmit={handleLoginSendOtp} className="mt-6 space-y-4">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">Mobile Number</label>
@@ -247,7 +314,6 @@ const Auth = () => {
             </p>
           </form>
         ) : (
-          /* SIGNUP FORM */
           <form onSubmit={handleSignupSendOtp} className="mt-6 space-y-4">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">Full Name *</label>
