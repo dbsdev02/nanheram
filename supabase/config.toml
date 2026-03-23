@@ -1,0 +1,16 @@
+project_id = "eqyvawvybtpwttdhgxgk"
+
+[functions.razorpay-create-order]
+verify_jwt = false
+
+[functions.razorpay-verify-payment]
+verify_jwt = false
+
+[functions.send-otp]
+verify_jwt = false
+
+[functions.verify-otp]
+verify_jwt = false
+
+[functions.firebase-phone-auth]
+verify_jwt = false
