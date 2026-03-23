@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const FIREBASE_API_KEY = "AIzaSyDCfhcThudCPAVNCTjnafR9ihDn_rpqQas";
+const FIREBASE_API_KEY = "AIzaSyDItXz-Qcn7XHbOQcXSi7z3Xo8LjEWBM9o";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
