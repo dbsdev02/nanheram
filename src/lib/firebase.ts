@@ -1,21 +1,20 @@
 import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDCfhcThudCPAVNCTjnafR9ihDn_rpqQas",
-  authDomain: "nanheram-15e3f.firebaseapp.com",
-  projectId: "nanheram-15e3f",
-  storageBucket: "nanheram-15e3f.firebasestorage.app",
-  messagingSenderId: "759277377375",
-  appId: "1:759277377375:web:de81dc69da82c3432688ea",
-  measurementId: "G-02G81WQEGY",
+  apiKey: "AIzaSyDItXz-Qcn7XHbOQcXSi7z3Xo8LjEWBM9o",
+  authDomain: "nanheram-ec8da.firebaseapp.com",
+  projectId: "nanheram-ec8da",
+  storageBucket: "nanheram-ec8da.firebasestorage.app",
+  messagingSenderId: "266958448778",
+  appId: "1:266958448778:web:39e1b62b7e6349f0b12573",
+  measurementId: "G-9P1W4XSVFB",
 };
 
 const app = initializeApp(firebaseConfig);
+export const analytics = getAnalytics(app);
 export const firebaseAuth = getAuth(app);
-
-// Disable app verification for testing (remove in production)
-// firebaseAuth.settings.appVerificationDisabledForTesting = true;
 
 export { RecaptchaVerifier, signInWithPhoneNumber };
 export type { ConfirmationResult };
