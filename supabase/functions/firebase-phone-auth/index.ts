@@ -62,12 +62,15 @@ Deno.serve(async (req) => {
     const phoneDigits = phone.replace(/^\+?91/, "");
 
     if (mode === "login") {
-      // Look up user by phone in profiles
-      const { data: profile } = await supabaseAdmin
+      // Look up user by phone in profiles (use most recent account if duplicates)
+      const { data: profiles } = await supabaseAdmin
         .from("profiles")
         .select("email, user_id")
         .eq("phone", phoneDigits)
-        .maybeSingle();
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      const profile = profiles?.[0] || null;
 
       if (!profile?.email || !profile?.user_id) {
         return new Response(
