@@ -3,7 +3,7 @@ import { Leaf, ShieldCheck, Award, Package } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import ProductCard from "@/components/ProductCard";
-import heroVideo from "@/assets/hero1.mp4";
+const heroVideo = "/hero1.mp4";
 import makhanaImg from "@/assets/Makhana.jpeg";
 import cashewImg from "@/assets/cashewnew.jpeg";
 import elaichiImg from "@/assets/Elaichi.jpeg";
@@ -41,7 +41,7 @@ const Index = () => {
       try {
         const { data, error } = await withTimeout(
           async () => supabase.from("products").select("*").eq("featured", true).limit(4),
-          7000,
+          15000,
           "Featured products request timed out"
         );
 
