@@ -1,6 +1,6 @@
 export const withTimeout = async <T>(
   operation: () => Promise<T>,
-  timeoutMs = 7000,
+  timeoutMs = 15000,
   timeoutMessage = "Request timed out"
 ) => {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;

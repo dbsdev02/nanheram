@@ -89,7 +89,7 @@ const Shop = () => {
             query = query.order("created_at", { ascending: false });
         }
 
-        const { data, error } = await withTimeout(async () => query, 7000, "Products request timed out");
+        const { data, error } = await withTimeout(async () => query, 15000, "Products request timed out");
         if (error) throw error;
 
         setProducts((data as CatalogProduct[]) || []);
