@@ -23,7 +23,9 @@ const ProductCard = ({ product }: { product: Product }) => {
 
   useEffect(() => {
     // If no hover_image_url set, try fetching the 2nd gallery image
-    if (!product.hover_image_url) {
+    // Skip if product.id is not a valid UUID (fallback products use slugs)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(product.id);
+    if (!product.hover_image_url && isUUID) {
       supabase
         .from("product_images")
         .select("image_url")
@@ -32,7 +34,6 @@ const ProductCard = ({ product }: { product: Product }) => {
         .limit(2)
         .then(({ data }) => {
           if (data && data.length > 0) {
-            // Use first gallery image as hover (since main image is separate)
             setHoverImage(data[0].image_url);
           }
         });
