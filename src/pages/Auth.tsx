@@ -218,7 +218,12 @@ const Auth = () => {
 
       // Create Supabase account
       const { error: signupErr } = await signUp(email, password, fullName, phone);
-      if (signupErr) throw new Error(signupErr.message);
+      if (signupErr) {
+        const msg = signupErr.message?.toLowerCase().includes("already registered")
+          ? "This email is already registered. Please sign in instead."
+          : signupErr.message;
+        throw new Error(msg);
+      }
 
       toast({ title: "Account created!", description: "You are now signed in." });
       navigate("/");
