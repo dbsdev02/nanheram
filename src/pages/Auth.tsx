@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { UserPlus, Phone, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import mainLogo from "@/assets/mainlogo.png";
 import {
   firebaseAuth,
   RecaptchaVerifier,
