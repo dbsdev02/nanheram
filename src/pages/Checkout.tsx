@@ -286,6 +286,7 @@ const Checkout = () => {
           const verifyData = await verifyRes.json();
 
           if (verifyData.success) {
+            await saveAddressToProfile();
             await clearCart();
             navigate(`/order-confirmation/${order.id}`);
           } else {
