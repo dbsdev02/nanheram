@@ -193,10 +193,24 @@ const Checkout = () => {
     return order;
   };
 
+  // Save address to profile for auto-fill next time
+  const saveAddressToProfile = async () => {
+    if (!user) return;
+    await supabase.from("profiles").update({
+      full_name: form.name,
+      phone: form.phone,
+      address: form.address,
+      city: form.city,
+      state: form.state,
+      pincode: form.pincode,
+    }).eq("user_id", user.id);
+  };
+
   const handleCODSubmit = async () => {
     setLoading(true);
     const order = await createOrder("cod");
     if (!order) { setLoading(false); return; }
+    await saveAddressToProfile();
     await clearCart();
     setLoading(false);
     navigate(`/order-confirmation/${order.id}`);
