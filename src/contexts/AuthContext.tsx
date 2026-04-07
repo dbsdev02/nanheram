@@ -22,59 +22,56 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  const checkAdmin = async (userId: string) => {
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    setIsAdmin(!!data);
-  };
+  // Check admin role separately - never inside onAuthStateChange to avoid lock deadlock
+  useEffect(() => {
+    let cancelled = false;
+    if (user) {
+      supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .maybeSingle()
+        .then(({ data }) => {
+          if (!cancelled) setIsAdmin(!!data);
+        });
+    } else {
+      setIsAdmin(false);
+    }
+    return () => { cancelled = true; };
+  }, [user]);
 
   useEffect(() => {
     let mounted = true;
 
+    // Set up listener FIRST - do NOT await anything inside the callback
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, sess) => {
+      (_event, sess) => {
         if (!mounted) return;
         setSession(sess);
         setUser(sess?.user ?? null);
-        if (sess?.user) {
-          await checkAdmin(sess.user.id);
-        } else {
-          setIsAdmin(false);
-        }
         setLoading(false);
       }
     );
 
-    // Use a timeout to prevent the lock from blocking forever
-    const sessionTimeout = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn("Auth session check timed out, proceeding without session");
-        setLoading(false);
-      }
-    }, 5000);
-
-    supabase.auth.getSession().then(async ({ data: { session: sess } }) => {
-      clearTimeout(sessionTimeout);
+    // Then restore session from storage
+    supabase.auth.getSession().then(({ data: { session: sess } }) => {
       if (!mounted) return;
       setSession(sess);
       setUser(sess?.user ?? null);
-      if (sess?.user) {
-        await checkAdmin(sess.user.id);
-      }
       setLoading(false);
-    }).catch((err) => {
-      console.error("getSession error:", err);
-      clearTimeout(sessionTimeout);
+    }).catch(() => {
       if (mounted) setLoading(false);
     });
 
+    // Safety timeout
+    const timeout = setTimeout(() => {
+      if (mounted && loading) setLoading(false);
+    }, 3000);
+
     return () => {
       mounted = false;
-      clearTimeout(sessionTimeout);
+      clearTimeout(timeout);
       subscription.unsubscribe();
     };
   }, []);
