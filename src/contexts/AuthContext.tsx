@@ -33,12 +33,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    let mounted = true;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await checkAdmin(session.user.id);
+      async (_event, sess) => {
+        if (!mounted) return;
+        setSession(sess);
+        setUser(sess?.user ?? null);
+        if (sess?.user) {
+          await checkAdmin(sess.user.id);
         } else {
           setIsAdmin(false);
         }
@@ -46,16 +49,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await checkAdmin(session.user.id);
+    // Use a timeout to prevent the lock from blocking forever
+    const sessionTimeout = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn("Auth session check timed out, proceeding without session");
+        setLoading(false);
+      }
+    }, 5000);
+
+    supabase.auth.getSession().then(async ({ data: { session: sess } }) => {
+      clearTimeout(sessionTimeout);
+      if (!mounted) return;
+      setSession(sess);
+      setUser(sess?.user ?? null);
+      if (sess?.user) {
+        await checkAdmin(sess.user.id);
       }
       setLoading(false);
+    }).catch((err) => {
+      console.error("getSession error:", err);
+      clearTimeout(sessionTimeout);
+      if (mounted) setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      clearTimeout(sessionTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string, phone?: string) => {
