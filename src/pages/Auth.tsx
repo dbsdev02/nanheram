@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { UserPlus, Phone, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import mainLogo from "@/assets/mainlogo.png";
 import {
   firebaseAuth,
   RecaptchaVerifier,
@@ -234,8 +235,8 @@ const Auth = () => {
     <main className="flex min-h-[70vh] items-center justify-center py-12">
       <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 shadow-sm">
         <div className="text-center">
-          <Link to="/" className="font-serif text-2xl font-bold text-foreground">
-            Nanhe<span className="text-accent">Ram</span>
+          <Link to="/">
+            <img src={mainLogo} alt="NanheRam" className="mx-auto h-16 w-auto" />
           </Link>
           <h1 className="mt-4 font-serif text-2xl font-bold text-foreground">
             {mode === "login" ? "Sign In" : "Create Account"}
