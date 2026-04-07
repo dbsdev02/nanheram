@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
-import { Users, Package, Search } from "lucide-react";
+import { Users, Package, Search, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 type Customer = {
   user_id: string;
@@ -19,39 +22,66 @@ const AdminCustomers = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      // Get all profiles
-      const { data: profiles } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
-      // Get all orders grouped by user
-      const { data: orders } = await supabase.from("orders").select("user_id, total");
+  const load = async () => {
+    setLoading(true);
+    const { data: profiles } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
+    const { data: orders } = await supabase.from("orders").select("user_id, total");
 
-      const orderMap: Record<string, { count: number; spent: number }> = {};
-      (orders || []).forEach((o: any) => {
-        if (!o.user_id) return;
-        if (!orderMap[o.user_id]) orderMap[o.user_id] = { count: 0, spent: 0 };
-        orderMap[o.user_id].count++;
-        orderMap[o.user_id].spent += Number(o.total);
-      });
+    const orderMap: Record<string, { count: number; spent: number }> = {};
+    (orders || []).forEach((o: any) => {
+      if (!o.user_id) return;
+      if (!orderMap[o.user_id]) orderMap[o.user_id] = { count: 0, spent: 0 };
+      orderMap[o.user_id].count++;
+      orderMap[o.user_id].spent += Number(o.total);
+    });
 
-      const customerList: Customer[] = (profiles || []).map((p: any) => ({
-        user_id: p.user_id,
-        full_name: p.full_name,
-        phone: p.phone,
-        city: p.city,
-        state: p.state,
-        created_at: p.created_at,
-        total_orders: orderMap[p.user_id]?.count || 0,
-        total_spent: orderMap[p.user_id]?.spent || 0,
-      }));
+    const customerList: Customer[] = (profiles || []).map((p: any) => ({
+      user_id: p.user_id,
+      full_name: p.full_name,
+      phone: p.phone,
+      city: p.city,
+      state: p.state,
+      created_at: p.created_at,
+      total_orders: orderMap[p.user_id]?.count || 0,
+      total_spent: orderMap[p.user_id]?.spent || 0,
+    }));
 
-      setCustomers(customerList);
-      setLoading(false);
-    };
-    load();
-  }, []);
+    setCustomers(customerList);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleDelete = async (userId: string) => {
+    setDeleting(userId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-customer`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ user_id: userId }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to delete");
+
+      toast({ title: "Customer deleted successfully" });
+      setCustomers(prev => prev.filter(c => c.user_id !== userId));
+    } catch (err: any) {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   const filtered = customers.filter(c => {
     if (!search.trim()) return true;
@@ -98,6 +128,7 @@ const AdminCustomers = () => {
                 <TableHead className="text-center">Orders</TableHead>
                 <TableHead className="text-right">Total Spent</TableHead>
                 <TableHead className="text-right">Joined</TableHead>
+                <TableHead className="text-center">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -123,6 +154,32 @@ const AdminCustomers = () => {
                   <TableCell className="text-right font-medium text-foreground">₹{c.total_spent.toFixed(2)}</TableCell>
                   <TableCell className="text-right text-sm text-muted-foreground">
                     {new Date(c.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" disabled={deleting === c.user_id}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete <strong>{c.full_name || c.phone || "this customer"}</strong>? This will permanently remove their account, profile, and cart data. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(c.user_id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </TableCell>
                 </TableRow>
               ))}
