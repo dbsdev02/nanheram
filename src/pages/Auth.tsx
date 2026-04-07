@@ -83,12 +83,24 @@ const Auth = () => {
     }
     setLoading(true);
     try {
+      // Check if phone number is registered before sending OTP
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("user_id")
+        .eq("phone", phone)
+        .maybeSingle();
+
+      if (!profile) {
+        toast({ title: "Not registered", description: "No account found with this mobile number. Please sign up first.", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+
       await sendFirebaseOtp(phone);
       setStep("otp");
       toast({ title: "OTP Sent!", description: `Verification code sent to +91${phone}` });
     } catch (err: any) {
       console.error("Firebase OTP error:", err);
-      // Reset recaptcha on error
       recaptchaVerifierRef.current = null;
       toast({ title: "Failed to send OTP", description: err.message || "Please try again.", variant: "destructive" });
     } finally {
