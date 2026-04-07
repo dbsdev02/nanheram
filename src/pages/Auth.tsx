@@ -122,11 +122,20 @@ const Auth = () => {
       const idToken = await result.user.getIdToken();
 
       // Use Firebase token to sign into Supabase
-      const { data, error } = await supabase.functions.invoke("firebase-phone-auth", {
-        body: { idToken, phone, mode: "login" },
-      });
-      if (error || !data?.success) {
-        throw new Error(data?.error || error?.message || "Login failed");
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/firebase-phone-auth`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ idToken, phone, mode: "login" }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "Login failed");
       }
 
       if (data.token_hash && data.email) {
@@ -191,11 +200,20 @@ const Auth = () => {
       const idToken = await result.user.getIdToken();
 
       // Verify with backend
-      const { data, error } = await supabase.functions.invoke("firebase-phone-auth", {
-        body: { idToken, phone, mode: "signup" },
-      });
-      if (error || !data?.success) {
-        throw new Error(data?.error || error?.message || "Verification failed");
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/firebase-phone-auth`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ idToken, phone, mode: "signup" }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "Verification failed");
       }
 
       // Create Supabase account
