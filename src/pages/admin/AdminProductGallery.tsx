@@ -48,7 +48,7 @@ const AdminProductGallery = ({ productId, productName, open, onOpenChange }: Gal
         continue;
       }
 
-      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/product-media/${path}`;
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/product-media/${path}?v=${Date.now()}`;
       await supabase.from("product_images").insert({
         product_id: productId,
         image_url: publicUrl,
@@ -67,6 +67,14 @@ const AdminProductGallery = ({ productId, productName, open, onOpenChange }: Gal
   };
 
   const deleteImage = async (id: string) => {
+    const img = images.find(i => i.id === id);
+    // Delete from storage first
+    if (img?.image_url) {
+      const path = img.image_url.split("/product-media/")[1];
+      if (path) {
+        await supabase.storage.from("product-media").remove([path]);
+      }
+    }
     await supabase.from("product_images").delete().eq("id", id);
     toast({ title: "Image removed" });
     load();
