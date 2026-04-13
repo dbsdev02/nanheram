@@ -68,9 +68,10 @@ const AdminProductGallery = ({ productId, productName, open, onOpenChange }: Gal
 
   const deleteImage = async (id: string) => {
     const img = images.find(i => i.id === id);
-    // Delete from storage first
     if (img?.image_url) {
-      const path = img.image_url.split("/product-media/")[1];
+      // Strip query params (e.g. ?v=123) before deleting from storage
+      const raw = img.image_url.split("/product-media/")[1];
+      const path = raw?.split("?")[0];
       if (path) {
         await supabase.storage.from("product-media").remove([path]);
       }
