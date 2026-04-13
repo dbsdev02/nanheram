@@ -48,7 +48,7 @@ const AdminProductGallery = ({ productId, productName, open, onOpenChange }: Gal
         continue;
       }
 
-      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/product-media/${path}`;
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/product-media/${path}?v=${Date.now()}`;
       await supabase.from("product_images").insert({
         product_id: productId,
         image_url: publicUrl,
