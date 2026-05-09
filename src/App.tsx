@@ -30,6 +30,7 @@ import AdminLogin from "./pages/admin/AdminLogin";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import NotFound from "./pages/NotFound";
+import UnderConstruction from "./pages/UnderConstruction";
 
 const queryClient = new QueryClient();
 
@@ -63,30 +64,8 @@ const App = () => (
                 <Route path="settings" element={<AdminSettings />} />
               </Route>
 
-              {/* Public routes with navbar/footer */}
-              <Route path="*" element={
-                <div className="flex min-h-screen flex-col">
-                  <Navbar />
-                  <div className="flex-1">
-                    <Routes>
-                      <Route path="/" element={<Index />} />
-                      <Route path="/shop" element={<Shop />} />
-                      <Route path="/product/:slug" element={<ProductDetail />} />
-                      <Route path="/about" element={<About />} />
-                      <Route path="/contact" element={<Contact />} />
-                      <Route path="/auth" element={<Auth />} />
-                      <Route path="/cart" element={<Cart />} />
-                      <Route path="/checkout" element={<Checkout />} />
-                      <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
-                      <Route path="/dashboard" element={<Dashboard />} />
-                      <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                      <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </div>
-                  <Footer />
-                </div>
-              } />
+              {/* Public routes - Under Construction */}
+              <Route path="*" element={<UnderConstruction />} />
             </Routes>
           </CartProvider>
         </AuthProvider>
